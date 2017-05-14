@@ -1,9 +1,15 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block neutron_base_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
+
+{{ macros.configure_user(name='neutron') }}
+
+{% if base_distro in ['debian', 'ubuntu'] %}
+{{ macros.debian_haproxy_existing_user_fix() }}
+{% endif %}
 
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
@@ -17,7 +23,7 @@ MAINTAINER {{ maintainer }}
             'python-openvswitch'
         ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian'] %}
 
         {% set neutron_base_packages = [
             'iproute2',
@@ -25,7 +31,18 @@ MAINTAINER {{ maintainer }}
             'neutron-plugin-ml2',
             'neutron-server',
             'openvswitch-switch',
+            'python-openvswitch'
+        ] %}
+
+    {% elif base_distro in ['ubuntu'] %}
+
+        {% set neutron_base_packages = [
+            'iproute2',
+            'keepalived',
             'neutron-lbaas-common',
+            'neutron-plugin-ml2',
+            'neutron-server',
+            'openvswitch-switch',
             'python-openvswitch'
         ] %}
 
@@ -33,7 +50,7 @@ MAINTAINER {{ maintainer }}
 
 {{ macros.install_packages(neutron_base_packages | customizable("packages")) }}
 
-    {% if base_distro in ['ubuntu'] %}
+    {% if base_distro in ['debian', 'ubuntu'] %}
 
 RUN mkdir -p /usr/share/neutron \
     && ln -s /etc/neutron/api-paste.ini /usr/share/neutron/api-paste.ini
@@ -47,6 +64,7 @@ RUN mkdir -p /usr/share/neutron \
             'conntrack-tools',
             'dnsmasq',
             'dnsmasq-utils',
+            'haproxy',
             'ipset',
             'keepalived',
             'openvswitch',
@@ -54,12 +72,13 @@ RUN mkdir -p /usr/share/neutron \
             'uuid'
         ] %}
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set neutron_base_packages = [
             'conntrack',
             'dnsmasq',
             'dnsmasq-utils',
+            'haproxy',
             'iproute2',
             'ipset',
             'iptables',
@@ -76,18 +95,26 @@ RUN mkdir -p /usr/share/neutron \
 
 ADD neutron-base-archive /neutron-base-source
 ADD plugins-archive /
+
+{% set neutron_base_pip_packages = [
+    '/neutron'
+] %}
+
+{% set neutron_base_plugins_pip_packages = [
+    '/plugins/*'
+] %}
+
 RUN ln -s neutron-base-source/* neutron \
-    && useradd --user-group neutron \
-    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /neutron \
-    && mkdir -p /etc/neutron /usr/share/neutron /var/lib/neutron /home/neutron \
+    && {{ macros.install_pip(neutron_base_pip_packages | customizable("pip_packages")) }} \
+    && mkdir -p /etc/neutron /usr/share/neutron \
     && cp -r /neutron/etc/* /etc/neutron/ \
     && cp -r /neutron/etc/neutron/* /etc/neutron/ \
     && cp /neutron/etc/api-paste.ini /usr/share/neutron \
     && mv /etc/neutron/neutron/ /etc/neutron/plugins/ \
-    && chown -R neutron: /etc/neutron /usr/share/neutron /var/lib/neutron /home/neutron \
+    && chown -R neutron: /etc/neutron /usr/share/neutron \
     && sed -i 's|^exec_dirs.*|exec_dirs=/var/lib/kolla/venv/bin,/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin|g' /etc/neutron/rootwrap.conf \
     && if [ "$(ls /plugins)" ]; then \
-        pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /plugins/*; \
+        {{ macros.install_pip(neutron_base_plugins_pip_packages) }}; \
     fi
 
 {% endif %}
@@ -95,8 +122,7 @@ RUN ln -s neutron-base-source/* neutron \
 COPY neutron_sudoers /etc/sudoers.d/kolla_neutron_sudoers
 COPY extend_start.sh /usr/local/bin/kolla_extend_start
 
-RUN usermod -a -G kolla neutron \
-    && chmod 750 /etc/sudoers.d \
+RUN chmod 750 /etc/sudoers.d \
     && chmod 440 /etc/sudoers.d/kolla_neutron_sudoers \
     && touch /usr/local/bin/kolla_neutron_extend_start \
     && chmod 755 /usr/local/bin/kolla_extend_start /usr/local/bin/kolla_neutron_extend_start

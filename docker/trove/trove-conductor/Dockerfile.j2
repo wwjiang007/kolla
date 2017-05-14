@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}trove-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block trove_conductor_header %}{% endblock %}
 
@@ -8,7 +8,7 @@ MAINTAINER {{ maintainer }}
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
        {% set trove_conductor_packages = ['openstack-trove-conductor'] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set trove_conductor_packages = ['trove-conductor'] %}
     {% endif %}
 
@@ -18,6 +18,5 @@ MAINTAINER {{ maintainer }}
 
 {% block trove_conductor_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER trove

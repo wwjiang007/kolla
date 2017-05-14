@@ -55,8 +55,9 @@ def main():
         for _service in cloud.keystone_client.services.list():
             if _service.type == service_type:
                 service = _service
+                service_description = getattr(service, 'description', None)
                 if service.name != service_name or \
-                        service.description != description:
+                        service_description != description:
                     changed = True
                     cloud.keystone_client.services.update(
                         service,
@@ -72,7 +73,8 @@ def main():
 
         for _endpoint in cloud.keystone_client.endpoints.list():
             if _endpoint.service_id == service.id and \
-                    _endpoint.interface == interface:
+                    _endpoint.interface == interface and \
+                    _endpoint.region == endpoint_region:
                 endpoint = _endpoint
                 if endpoint.url != url:
                     changed = True

@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}ceilometer-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block ceilometer_api_header %}{% endblock %}
 
@@ -8,16 +8,18 @@ MAINTAINER {{ maintainer }}
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
         {% set ceilometer_api_packages = [
-            'openstack-ceilometer-api',
             'httpd',
-            'mod_wsgi'
+            'mod_ssl',
+            'mod_wsgi',
+            'openstack-ceilometer-api'
         ] %}
 {{ macros.install_packages(ceilometer_api_packages | customizable("packages")) }}
-RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf
-    {% elif base_distro in ['ubuntu'] %}
+RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && sed -i -r 's,^(Listen 443),#\1,' /etc/httpd/conf.d/ssl.conf
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set ceilometer_api_packages = [
-            'ceilometer-api',
             'apache2',
+            'ceilometer-api',
             'libapache2-mod-wsgi'
         ] %}
 {{ macros.install_packages(ceilometer_api_packages | customizable("packages")) }}
@@ -30,23 +32,25 @@ RUN echo > /etc/apache2/ports.conf
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
 
         {% set ceilometer_api_packages = [
+                'gettext',
                 'httpd',
-                'mod_wsgi',
-                'gettext'
+                'mod_ssl',
+                'mod_wsgi'
         ] %}
 
 {{ macros.install_packages(ceilometer_api_packages | customizable("packages")) }}
 
 {% block ceilometer_api_redhat_source_setup %}
-RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf
+RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && sed -i -r 's,^(Listen 443),#\1,' /etc/httpd/conf.d/ssl.conf
 {% endblock %}
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set ceilometer_api_packages = [
                 'apache2',
-                'libapache2-mod-wsgi',
-                'gettext'
+                'gettext',
+                'libapache2-mod-wsgi'
         ] %}
 
 {{ macros.install_packages(ceilometer_api_packages | customizable("packages")) }}
@@ -63,4 +67,3 @@ RUN chmod 755 /usr/local/bin/kolla_ceilometer_extend_start
 
 {% block ceilometer_api_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

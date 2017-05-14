@@ -1,29 +1,32 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block gnocchi_base_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
+{{ macros.configure_user(name='gnocchi') }}
+
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
 
        {% set gnocchi_base_packages = [
-            'openstack-gnocchi-common',
-            'python-gnocchiclient',
             'httpd',
+            'mod_ssl',
             'mod_wsgi',
+            'openstack-gnocchi-common',
             'python-ldappool',
             'python-rados'
         ] %}
 
 {{ macros.install_packages(gnocchi_base_packages | customizable("packages")) }}
-RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf
-    {% elif base_distro in ['ubuntu'] %}
+RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && sed -i -r 's,^(Listen 443),#\1,' /etc/httpd/conf.d/ssl.conf
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
        {% set gnocchi_base_packages = [
-            'gnocchi-common',
             'apache2',
+            'gnocchi-common',
             'libapache2-mod-wsgi',
             'python-ldappool',
             'python-rados'
@@ -38,14 +41,16 @@ RUN truncate -s 0 /etc/apache2/ports.conf
 
        {% set gnocchi_base_packages = [
             'httpd',
+            'mod_ssl',
             'mod_wsgi',
             'python-ldappool',
             'python-rados'
         ] %}
 {{ macros.install_packages(gnocchi_base_packages | customizable("packages")) }}
 RUN mkdir -p /var/www/cgi-bin/gnocchi \
-    && sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    && sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && sed -i -r 's,^(Listen 443),#\1,' /etc/httpd/conf.d/ssl.conf
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
        {% set gnocchi_base_packages = [
             'apache2',
@@ -54,28 +59,38 @@ RUN mkdir -p /var/www/cgi-bin/gnocchi \
             'python-rados'
         ] %}
 
+        # on x86-64 pip grabs precompiled numpy/scipy - on aarch64/ppc64le
+        # it needs to be built
+
+        {% if base_arch != 'x86_64' %}
+            {% set gnocchi_base_packages = gnocchi_base_packages + [
+                'libblas-dev',
+                'liblapack-dev'
+            ] %}
+        {% endif %}
+
 {{ macros.install_packages(gnocchi_base_packages | customizable("packages")) }}
 RUN truncate -s 0 /etc/apache2/ports.conf
 
    {% endif %}
 ADD gnocchi-base-archive /gnocchi-base-source
 
+{% set gnocchi_base_pip_packages = [
+    'gnocchiclient',
+    '/gnocchi[keystone,mysql,file,ceph]'
+] %}
+
 RUN ln -s gnocchi-base-source/* gnocchi \
-    && useradd --user-group gnocchi \
-    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt gnocchiclient /gnocchi[keystone,mysql,file,ceph] \
-    && mkdir -p /etc/gnocchi /var/log/kolla/gnocchi /home/gnocchi \
-    && cp -r /gnocchi/etc/gnocchi/* /etc/gnocchi/ \
-    && chown -R gnocchi: /etc/gnocchi /var/log/kolla/gnocchi
+    && {{ macros.install_pip(gnocchi_base_pip_packages | customizable("pip_packages")) }} \
+    && mkdir -p /etc/gnocchi \
+    && chown -R gnocchi: /etc/gnocchi
 
 {% endif %}
 
 COPY extend_start.sh /usr/local/bin/kolla_extend_start
 COPY gnocchi_sudoers /etc/sudoers.d/kolla_gnocchi_sudoers
 
-RUN usermod -a -G kolla gnocchi \
-    && mkdir -p /var/lib/gnocchi \
-    && chown -R gnocchi: /var/lib/gnocchi \
-    && chmod 750 /etc/sudoers.d \
+RUN chmod 750 /etc/sudoers.d \
     && chmod 640 /etc/sudoers.d/kolla_gnocchi_sudoers \
     && touch /usr/local/bin/kolla_gnocchi_extend_start \
     && chmod 755 /usr/local/bin/kolla_extend_start /usr/local/bin/kolla_gnocchi_extend_start

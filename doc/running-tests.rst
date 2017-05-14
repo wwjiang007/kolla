@@ -44,7 +44,7 @@ To run multiple tests separate items by commas:
 
 .. code-block:: console
 
-    $ tox -e py27,py34,pep8
+    $ tox -e py27,py35,pep8
 
 .. _the unit testing section of the Testing wiki page: https://wiki.openstack.org/wiki/Testing#Unit_Tests
 
@@ -62,25 +62,35 @@ directory use:
 
     $ tox -e py27 kolla.tests
 
-To run the tests of a specific file say ``kolla/tests/test_kolla_docker.py``:
+To run the tests of a specific file say ``kolla/tests/test_set_config.py``:
 
 .. code-block:: console
 
-    $ tox -e py27 test_kolla_docker
+    $ tox -e py27 test_set_config
 
-To run the tests in the ``ModuleArgsTest`` class in
-the ``kolla/tests/test_kolla_docker.py`` file:
-
-.. code-block:: console
-
-    $ tox -e py27 test_kolla_docker.ModuleArgsTest
-
-To run the ``ModuleArgsTest.test_module_args`` test method in
-the ``kolla/tests/test_kolla_docker.py``` file:
+To run the tests in the ``ConfigFileTest`` class in
+the ``kolla/tests/test_set_config.py`` file:
 
 .. code-block:: console
 
-    $ tox -e py27 test_kolla_docker.ModuleArgsTest.test_module_args
+    $ tox -e py27 test_set_config.ConfigFileTest
+
+To run the ``ConfigFileTest.test_delete_path_not_exists`` test method in
+the ``kolla/tests/test_set_config.py`` file:
+
+.. code-block:: console
+
+    $ tox -e py27 test_set_config.ConfigFileTest.test_delete_path_not_exists
+
+
+Coverage Report Generation
+--------------------------
+
+In order to get coverage report for Kolla, run the below command.
+
+.. code-block:: console
+
+    $ tox -e cover
 
 Debugging unit tests
 ------------------------

@@ -59,7 +59,7 @@ command line::
 
     kolla-build keystone
 
-In this case, the build script builds all images which name contains the
+In this case, the build script builds all images whose name contains the
 ``keystone`` string along with their dependencies.
 
 Multiple names may be specified on the command line::
@@ -209,6 +209,7 @@ as part of a binary install type build:
 * ``openstack-dashboard``
 * ``httpd``
 * ``mod_wsgi``
+* ``mod_ssl``
 * ``gettext``
 
 To add a package to this list, say, ``iproute``, first create a file, e.g.
@@ -258,7 +259,7 @@ modifications, while the ``footer`` can be used to apply a common set of
 modifications to every Dockerfile.
 
 For example, to add the ``networking-cisco`` plugin to the ``neutron_server``
-image, add the following to the ``template-override`` file::
+image, one may want to add the following to the ``template-override`` file::
 
     {% extends parent_template %}
 
@@ -267,7 +268,7 @@ image, add the following to the ``template-override`` file::
         && pip --no-cache-dir install networking-cisco
     {% endblock %}
 
-Acute readers may notice there is one problem with this however. Assuming
+Astute readers may notice there is one problem with this however. Assuming
 nothing else in the Dockerfile changes for a period of time, the above ``RUN``
 statement will be cached by Docker, meaning new commits added to the Git
 repository may be missed on subsequent builds. To solve this the Kolla build
@@ -309,6 +310,61 @@ The template now becomes::
     pip --no-cache-dir install /plugins/*
     {% endblock %}
 
+Many of the Dockerfiles already copy the ``plugins-archive`` to the image and
+install available plugins at build time.
+
+Additions Functionality
+-----------------------
+
+The Dockerfile customisation mechanism is also useful for adding/installing
+additions into images. An example of this is adding your jenkins job build
+metadata (say formatted into a jenkins.json file) into the image.
+
+Similarly to the plugins mechanism, the Kolla build tool also supports cloning
+additional repositories at build time, which will be automatically made
+available to the build, within an archive named ``additions-archive``. The main
+difference between ``plugins-archive`` and ``additions-archive`` is that
+``plugins-archive`` is copied to the relevant images and processed to install
+available plugins while ``additions-archive`` processing is left to the Kolla
+user.
+
+.. note::
+
+    The following is available for source build types only.
+
+To use this, add a section to ``/etc/kolla/kolla-build.conf`` in the following
+format::
+
+    [<image>-additions-<additions-name>]
+
+Where ``<image>`` is the image that the plugin should be installed into, and
+``<additions-name>`` is the chosen additions identifier.
+
+Continuing with the above example, add the following to
+``/etc/kolla/kolla-build.conf``::
+
+    [neutron-server-additions-jenkins]
+    type = local
+    location = /path/to/your/jenkins/data
+
+The build will copy the directory, resulting in the following archive
+structure::
+
+    additions-archive.tar
+    |__ additions
+        |__jenkins
+
+Alternatively, it is also possible to create an ``additions-archive.tar`` file
+yourself without passing by ``/etc/kolla/kolla-build.conf`` in order to use the
+feature for binary build type.
+
+The template now becomes::
+
+    {% block neutron_server_footer %}
+    ADD additions-archive /
+    RUN cp /additions/jenkins/jenkins.json /jenkins.json
+    {% endblock %}
+
 Custom Repos
 ------------
 
@@ -320,7 +376,7 @@ form of ``.repo``, ``.rpm``, or a url. See examples below.
 
 Update ``rpm_setup_config`` in ``/etc/kolla/kolla-build.conf``::
 
-    rpm_setup_config = http://trunk.rdoproject.org/centos7/currrent/delorean.repo,http://trunk.rdoproject.org/centos7/delorean-deps.repo
+    rpm_setup_config = https://trunk.rdoproject.org/centos7/currrent/delorean.repo,https://trunk.rdoproject.org/centos7/delorean-deps.repo
 
 If specifying a ``.repo`` file, each ``.repo`` file will need to exist in the
 same directory as the base Dockerfile (``kolla/docker/base``)::

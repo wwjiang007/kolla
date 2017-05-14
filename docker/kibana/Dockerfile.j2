@@ -1,20 +1,19 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block kibana_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
-COPY extend_start.sh /usr/local/bin/kolla_extend_start
-RUN useradd -r -m --user-group kibana \
-    && usermod -a -G kolla kibana \
-    && chmod 755 /usr/local/bin/kolla_extend_start
+{{ macros.configure_user(name='kibana') }}
 
 {% set kibana_packages = ['kibana'] %}
 {{ macros.install_packages(kibana_packages | customizable("packages")) }}
 
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
+RUN chmod 755 /usr/local/bin/kolla_extend_start
+
 {% block kibana_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER kibana

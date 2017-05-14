@@ -1,21 +1,27 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block horizon_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
+{{ macros.configure_user(name='horizon') }}
+
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
 
         {% set horizon_packages = [
-                'openstack-dashboard',
-                'httpd',
-                'mod_wsgi',
                 'gettext',
+                'httpd',
+                'mod_ssl',
+                'mod_wsgi',
                 'openstack-cloudkitty-ui',
+                'openstack-dashboard',
+                'openstack-ironic-ui',
+                'openstack-magnum-ui',
                 'openstack-manila-ui',
                 'openstack-mistral-ui',
+                'openstack-murano-ui',
                 'openstack-neutron-lbaas-ui',
                 'openstack-sahara-ui',
                 'openstack-trove-ui'
@@ -24,30 +30,33 @@ MAINTAINER {{ maintainer }}
 {{ macros.install_packages(horizon_packages | customizable("packages")) }}
 
 {% block horizon_redhat_binary_setup %}
-RUN useradd --user-group horizon \
-    && sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && sed -i -r 's,^(Listen 443),#\1,' /etc/httpd/conf.d/ssl.conf \
     && ln -s /usr/share/openstack-dashboard/openstack_dashboard /usr/lib/python2.7/site-packages/openstack_dashboard \
     && ln -s /usr/share/openstack-dashboard/static /usr/lib/python2.7/site-packages/static \
     && chown -R horizon: /etc/openstack-dashboard /usr/share/openstack-dashboard \
     && chown -R apache: /usr/share/openstack-dashboard/static \
     && sed -i "s|WEBROOT = '/dashboard/'|WEBROOT = '/'|" /etc/openstack-dashboard/local_settings \
     && cp /usr/share/openstack-dashboard/manage.py /usr/bin/manage.py \
+    && rm -f /usr/share/openstack-dashboard/openstack_dashboard/local/enabled/?[^_]*.py* \
+    && rm -f /usr/lib/python2.7/site-packages/openstack_dashboard/local/enabled/?[^_]*.py* \
     && (cd /usr/lib/python2.7/site-packages/horizon && /usr/bin/python /usr/bin/manage.py compilemessages) \
-    && (cd /usr/lib/python2.7/site-packages/openstack_dashboard && /usr/bin/python /usr/bin/manage.py compilemessages) \
-    && rm -f /usr/share/openstack-dashboard/openstack_dashboard/local/enabled/_148*_project*loadbalancersv2_panel.py* \
-    && rm -f /usr/share/openstack-dashboard/openstack_dashboard/local/enabled/_18*_data_processing_*.py* \
-    && rm -f /usr/share/openstack-dashboard/openstack_dashboard/local/enabled/_17*_database*.py* \
-    && rm -f /usr/share/openstack-dashboard/openstack_dashboard/local/enabled/_17*_panel*.py*
+    && (cd /usr/lib/python2.7/site-packages/openstack_dashboard && /usr/bin/python /usr/bin/manage.py compilemessages)
 {% endblock %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set horizon_packages = [
-                'openstack-dashboard',
                 'apache2',
-                'libapache2-mod-wsgi',
                 'gettext',
-                'python-manila-ui'
+                'libapache2-mod-wsgi',
+                'locales',
+                'openstack-dashboard',
+                'python-manila-ui',
+                'python-murano-dashboard',
+                'python-sahara-dashboard',
+                'python-trove-dashboard',
+                'tzdata'
         ] %}
 
 {{ macros.install_packages(horizon_packages | customizable("packages")) }}
@@ -58,8 +67,6 @@ RUN echo > /etc/apache2/ports.conf \
     && ln -s ../mods-available/headers.load  /etc/apache2/mods-enabled/headers.load \
     && ln -s ../mods-available/expires.load  /etc/apache2/mods-enabled/expires.load \
     && cp /usr/share/openstack-dashboard/openstack_dashboard/conf/*.json /etc/openstack-dashboard \
-    && sed -i "s|WEBROOT='/horizon/'|WEBROOT = '/'|" /etc/openstack-dashboard/local_settings.py \
-    && sed -i "s|^POLICY_FILES_PATH|POLICY_FILES_PATH = '/etc/openstack-dashboard'|" /etc/openstack-dashboard/local_settings.py \
     && cp /usr/share/openstack-dashboard/manage.py /usr/bin/manage.py \
     && rm /etc/apache2/conf-enabled/openstack-dashboard.conf \
     && rm /etc/openstack-dashboard/local_settings.py \
@@ -76,23 +83,27 @@ RUN echo > /etc/apache2/ports.conf \
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
 
         {% set horizon_packages = [
+                'gettext',
                 'httpd',
-                'mod_wsgi',
-                'gettext'
+                'mod_ssl',
+                'mod_wsgi'
         ] %}
 
 {{ macros.install_packages(horizon_packages | customizable("packages")) }}
 
 {% block horizon_redhat_source_setup %}
-RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf
+RUN sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && sed -i -r 's,^(Listen 443),#\1,' /etc/httpd/conf.d/ssl.conf
 {% endblock %}
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set horizon_packages = [
                 'apache2',
+                'gettext',
                 'libapache2-mod-wsgi',
-                'gettext'
+                'locales',
+                'tzdata'
         ] %}
 
 {{ macros.install_packages(horizon_packages | customizable("packages")) }}
@@ -106,20 +117,28 @@ RUN echo > /etc/apache2/ports.conf \
 
 ADD horizon-archive /horizon-source
 ADD plugins-archive /
+
+{% set horizon_pip_packages = [
+    '/horizon'
+] %}
+
+{% set horizon_plugins_pip_packages = [
+    '/plugins/*'
+] %}
+
 RUN ln -s horizon-source/* horizon \
-    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /horizon \
-    && useradd --user-group horizon \
-    && mkdir -p /etc/openstack-dashboard /home/horizon \
+    && {{ macros.install_pip(horizon_pip_packages | customizable("pip_packages")) }} \
+    && mkdir -p /etc/openstack-dashboard \
     && ln -s /etc/openstack-dashboard/local_settings /var/lib/kolla/venv/lib/python2.7/site-packages/openstack_dashboard/local/local_settings.py \
     && cp -r /horizon/openstack_dashboard/conf/* /etc/openstack-dashboard/ \
     && cp /horizon/openstack_dashboard/local/local_settings.py.example /etc/openstack-dashboard/local_settings \
     && cp /horizon/manage.py /var/lib/kolla/venv/bin/manage.py \
     && if [ "$(ls /plugins)" ]; then \
-           pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /plugins/*; \
+           {{ macros.install_pip(horizon_plugins_pip_packages) }}; \
        fi \
     && (cd /var/lib/kolla/venv/lib/python2.7/site-packages/horizon && /var/lib/kolla/venv/bin/python /var/lib/kolla/venv/bin/manage.py compilemessages) \
     && (cd /var/lib/kolla/venv/lib/python2.7/site-packages/openstack_dashboard && /var/lib/kolla/venv/bin/python /var/lib/kolla/venv/bin/manage.py compilemessages) \
-    && chown -R horizon: /etc/openstack-dashboard /home/horizon /var/lib/kolla/venv/lib/python2.7/site-packages/static
+    && chown -R horizon: /etc/openstack-dashboard /var/lib/kolla/venv/lib/python2.7/site-packages/static
 
 {% endif %}
 
@@ -128,4 +147,3 @@ RUN chmod 755 /usr/local/bin/kolla_extend_start
 
 {% block horizon_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

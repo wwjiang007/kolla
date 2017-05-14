@@ -11,6 +11,7 @@
 #    under the License.
 
 import abc
+import multiprocessing
 import os
 import sys
 
@@ -34,14 +35,20 @@ class BuildTest(object):
         super(BuildTest, self).setUp()
         self.useFixture(log_fixture.SetLogLevel([__name__],
                                                 logging.logging.INFO))
-        self.build_args = [__name__, "--debug", '--threads', '4']
+
+        self.threads = multiprocessing.cpu_count()
+        if self.threads < 4:
+            self.threads = 4
+
+        self.build_args = [__name__, "--debug", '--threads', str(self.threads)]
 
     @testtools.skipUnless(os.environ.get('DOCKER_BUILD_TEST'),
                           'Skip the docker build test')
     def runTest(self):
         with patch.object(sys, 'argv', self.build_args):
             LOG.info("Running with args %s", self.build_args)
-            bad_results, good_results, unmatched_results = build.run_build()
+            (bad_results, good_results, unmatched_results,
+             skipped_results) = build.run_build()
 
         failures = 0
         for image, result in bad_results.items():
@@ -67,22 +74,19 @@ class BuildTest(object):
 class BuildTestCentosBinary(BuildTest, base.BaseTestCase):
     excluded_images = [
         "bifrost-base",
-        "cloudkitty-base",
-        "congress-base",
         "freezer-base",
         "kafka",
         "karbor-base",
         "kuryr-base",
         "manila-data",
         "monasca-base",
+        "neutron-bgp-dragent",
         "neutron-sfc-agent",
         "searchlight-base",
         "senlin-base",
         "solum-base",
-        "tacker",
+        "vitrage-base",
         "vmtp",
-        "watcher-base",
-        "zookeeper",
         "zun-base",
     ]
 
@@ -94,9 +98,10 @@ class BuildTestCentosBinary(BuildTest, base.BaseTestCase):
 
 class BuildTestCentosSource(BuildTest, base.BaseTestCase):
     excluded_images = [
+        "bifrost-base",
         "kafka",
         "mistral-base",
-        "zookeeper",
+        "opendaylight"
     ]
 
     def setUp(self):
@@ -111,6 +116,7 @@ class BuildTestUbuntuBinary(BuildTest, base.BaseTestCase):
         "cloudkitty-base",
         "congress-base",
         "freezer-base",
+        "heat-all",
         "karbor-base",
         "kuryr-base",
         "monasca-base",
@@ -121,8 +127,8 @@ class BuildTestUbuntuBinary(BuildTest, base.BaseTestCase):
         "senlin-base",
         "solum-base",
         "tacker",
+        "vitrage-base",
         "vmtp",
-        "watcher-base",
         "zaqar",
         "zun-base",
     ]
@@ -134,7 +140,10 @@ class BuildTestUbuntuBinary(BuildTest, base.BaseTestCase):
 
 
 class BuildTestUbuntuSource(BuildTest, base.BaseTestCase):
-    excluded_images = []
+    excluded_images = [
+        "bifrost-base",
+        "opendaylight"
+    ]
 
     def setUp(self):
         super(BuildTestUbuntuSource, self).setUp()
@@ -142,25 +151,63 @@ class BuildTestUbuntuSource(BuildTest, base.BaseTestCase):
                                 "--type", "source"])
 
 
-class BuildTestOracleLinuxBinary(BuildTest, base.BaseTestCase):
+class BuildTestDebianBinary(BuildTest, base.BaseTestCase):
     excluded_images = [
         "bifrost-base",
         "cloudkitty-base",
         "congress-base",
+        "freezer-base",
+        "heat-all",
+        "karbor-base",
+        "kuryr-base",
+        "monasca-base",
+        "neutron-sfc-agent",
+        "octavia-base",
+        "panko-base",
+        "searchlight-base",
+        "senlin-base",
+        "solum-base",
+        "tacker",
+        "vitrage-base",
+        "vmtp",
+        "zaqar",
+        "zun-base"
+    ]
+
+    def setUp(self):
+        super(BuildTestDebianBinary, self).setUp()
+        self.build_args.extend(["--base", "debian",
+                                "--type", "binary"])
+
+
+class BuildTestDebianSource(BuildTest, base.BaseTestCase):
+    excluded_images = [
+        "bifrost-base",
+        "opendaylight"
+    ]
+
+    def setUp(self):
+        super(BuildTestDebianSource, self).setUp()
+        self.build_args.extend(["--base", "debian",
+                                "--type", "source"])
+
+
+class BuildTestOracleLinuxBinary(BuildTest, base.BaseTestCase):
+    excluded_images = [
+        "bifrost-base",
         "freezer-base",
         "kafka",
         "karbor-base",
         "kuryr-base",
         "manila-data",
         "monasca-base",
+        "neutron-bgp-dragent",
         "neutron-sfc-agent",
         "searchlight-base",
         "senlin-base",
         "solum-base",
-        "tacker",
+        "vitrage-base",
         "vmtp",
-        "watcher-base",
-        "zookeeper",
         "zun-base",
     ]
 
@@ -172,8 +219,9 @@ class BuildTestOracleLinuxBinary(BuildTest, base.BaseTestCase):
 
 class BuildTestOracleLinuxSource(BuildTest, base.BaseTestCase):
     excluded_images = [
+        "bifrost-base",
         "kafka",
-        "zookeeper",
+        "opendaylight"
     ]
 
     def setUp(self):

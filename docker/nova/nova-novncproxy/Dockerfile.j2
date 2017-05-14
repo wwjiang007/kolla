@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}nova-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block nova_novncproxy_header %}{% endblock %}
 
@@ -13,7 +13,7 @@ MAINTAINER {{ maintainer }}
             'openstack-nova-novncproxy'
         ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set nova_novncproxy_packages = [
             'nova-novncproxy'
@@ -21,19 +21,17 @@ MAINTAINER {{ maintainer }}
 
     {% endif %}
 
-{{ macros.install_packages(nova_novncproxy_packages | customizable("packages")) }}
-
 {% elif install_type == 'source' %}
 
-ADD nova-novncproxy-archive /usr/share/nova-novncproxy-source
-RUN cd /usr/share \
-    && ln -s nova-novncproxy-source/* novnc \
-    && chown -R nova: /usr/share/nova-novncproxy-source
+        {% set nova_novncproxy_packages = [
+            'novnc'
+        ] %}
 
 {% endif %}
 
+{{ macros.install_packages(nova_novncproxy_packages | customizable("packages")) }}
+
 {% block nova_novncproxy_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER nova

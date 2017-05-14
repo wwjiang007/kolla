@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}barbican-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block barbican_api_header %}{% endblock %}
 
@@ -7,11 +7,14 @@ MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
-       {% set barbican_api_packages = ['openstack-barbican-api'] %}
-    {% elif base_distro in ['ubuntu'] %}
+       {% set barbican_api_packages = [
+                'openstack-barbican-api',
+                'uwsgi-plugin-python'
+       ] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set barbican_api_packages = [
-                'uwsgi-plugin-python',
-                'barbican-api'
+                'barbican-api',
+                'uwsgi-plugin-python'
         ] %}
     {% endif %}
 

@@ -1,9 +1,15 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block haproxy_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
+
+{{ macros.configure_user(name='haproxy') }}
+
+{% if base_distro in ['debian', 'ubuntu'] %}
+{{ macros.debian_haproxy_existing_user_fix() }}
+{% endif %}
 
 {% set haproxy_packages = [
     'haproxy',
@@ -11,8 +17,7 @@ MAINTAINER {{ maintainer }}
 ] %}
 {{ macros.install_packages(haproxy_packages | customizable("packages")) }}
 
-RUN usermod -a -G kolla haproxy \
-    && mkdir -p /var/lib/kolla/haproxy \
+RUN mkdir -p /var/lib/kolla/haproxy \
     && chown -R haproxy: /var/lib /run
 
 COPY ensure_latest_config.sh /usr/local/bin/kolla_ensure_haproxy_latest_config
@@ -20,4 +25,3 @@ RUN chmod 755 /usr/local/bin/kolla_ensure_haproxy_latest_config
 
 {% block haproxy_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

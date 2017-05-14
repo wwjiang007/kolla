@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}designate-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block designate_pool_manager_header %}{% endblock %}
 
@@ -12,7 +12,7 @@ MAINTAINER {{ maintainer }}
             'bind',
             'openstack-designate-pool-manager'
         ] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
        {% set designate_pool_manager_packages = [
             'bind9',
             'designate-pool-manager'
@@ -23,7 +23,7 @@ MAINTAINER {{ maintainer }}
        {% set designate_pool_manager_packages = [
             'bind'
         ] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
        {% set designate_pool_manager_packages = [
             'bind9'
         ] %}
@@ -33,6 +33,5 @@ MAINTAINER {{ maintainer }}
 
 {% block designate_pool_manager_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER designate

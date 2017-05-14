@@ -1,11 +1,11 @@
 FROM {{ namespace }}/{{ image_prefix }}neutron-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block neutron_dhcp_agent_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
-{% if base_distro in ['ubuntu', 'debian'] %}
+{% if base_distro in ['debian', 'ubuntu'] %}
     {% if install_type == 'binary' %}
 
         {% set neutron_dhcp_agent_packages = [
@@ -19,6 +19,5 @@ MAINTAINER {{ maintainer }}
 
 {% block neutron_dhcp_agent_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER neutron

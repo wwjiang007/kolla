@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}openvswitch-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block openvswitch_db_server_header %}{% endblock %}
 
@@ -12,4 +12,3 @@ RUN chmod 755 /usr/local/bin/kolla_ensure_openvswitch_configured \
 
 {% block openvswitch_db_server_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

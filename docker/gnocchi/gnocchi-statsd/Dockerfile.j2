@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}gnocchi-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block gnocchi_statsd_header %}{% endblock %}
 
@@ -14,7 +14,5 @@ MAINTAINER {{ maintainer }}
 {% endif %}
 {% block gnocchi_statsd_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-
-{{ include_footer }}
 
 USER gnocchi

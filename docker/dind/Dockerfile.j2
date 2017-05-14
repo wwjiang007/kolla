@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block dind_header %}{% endblock %}
 
@@ -12,14 +12,19 @@ MAINTAINER {{ maintainer }}
 # the centos gate and we want to do multinode we can populate this container
 RUN /bin/true
 
-{% elif base_distro in ['ubuntu', 'debian'] %}
+{% elif base_distro in ['debian', 'ubuntu'] %}
     {% set dind_packages = [
-         'btrfs-tools', 
-         'docker-engine', 
+         'btrfs-tools',
+         'docker-engine',
          'openssh-server'
     ] %}
 {{ macros.install_packages(dind_packages | customizable("packages")) }}
-RUN pip --no-cache-dir install --upgrade docker-py
+
+{% set dind_pip_packages = [
+    'docker-py'
+] %}
+
+RUN {{ macros.install_pip(dind_pip_packages | customizable("pip_packages"), constraints = false) }}
 
 {% endif %}
 
@@ -27,4 +32,4 @@ COPY start.sh /usr/local/bin/kolla_start
 RUN chmod 755 /usr/local/bin/kolla_start
 
 {% block dind_footer %}{% endblock %}
-{{ include_footer }}
+{% block footer %}{% endblock %}

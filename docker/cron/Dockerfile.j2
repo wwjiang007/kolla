@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block cron_header %}{% endblock %}
 
@@ -10,7 +10,7 @@ MAINTAINER {{ maintainer }}
         'cronie',
         'logrotate'
     ] %}
-{% elif base_distro in ['ubuntu', 'debian'] %}
+{% elif base_distro in ['debian', 'ubuntu'] %}
     {% set cron_packages = [
         'cron',
         'logrotate'
@@ -24,4 +24,3 @@ RUN chmod 755 /usr/local/bin/kolla_extend_start
 
 {% block cron_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

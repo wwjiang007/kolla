@@ -17,10 +17,8 @@ if [[ "${KOLLA_BASE_DISTRO}" =~ debian|ubuntu ]]; then
     # Loading Apache2 ENV variables
     . /etc/apache2/envvars
     rm -rf /var/run/apache2/*
-    APACHE_DIR="apache2"
 else
     rm -rf /var/run/httpd/* /run/httpd/* /tmp/httpd*
-    APACHE_DIR="httpd"
 fi
 
 # Create log dir for Keystone logs
@@ -39,6 +37,25 @@ if [[ $(stat -c %U:%G ${KEYSTONE_LOG_DIR}/keystone.log) != "keystone:keystone" ]
 fi
 if [[ $(stat -c %a ${KEYSTONE_LOG_DIR}) != "755" ]]; then
     chmod 755 ${KEYSTONE_LOG_DIR}
+fi
+
+# Upgrade and exit if KOLLA_UPGRADE variable is set. This catches all cases
+# of the KOLLA_UPGRADE variable being set, including empty.
+if [[ "${!KOLLA_UPGRADE[@]}" ]]; then
+    # TODO(duonghq): check doctor result here
+    # TODO: find reason why doctor failed in gate
+    # sudo -H -u keystone keystone-manage doctor
+    sudo -H -u keystone keystone-manage db_sync --expand
+    sudo -H -u keystone keystone-manage db_sync --migrate
+    exit 0
+fi
+
+# Contract database and exit if KOLLA_FINISH_UPGRADE variable is set.
+# This catches all cases of the KOLLA_FINISH_UPGRADE variable being set,
+# including empty.
+if [[ "${!KOLLA_FINISH_UPGRADE[@]}" ]]; then
+    sudo -H -u keystone keystone-manage db_sync --contract
+    exit 0
 fi
 
 # Bootstrap and exit if KOLLA_BOOTSTRAP variable is set. This catches all cases

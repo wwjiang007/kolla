@@ -88,10 +88,15 @@ STATUS_BUILDING = 'building'
 STATUS_UNMATCHED = 'unmatched'
 STATUS_MATCHED = 'matched'
 STATUS_UNPROCESSED = 'unprocessed'
+STATUS_SKIPPED = 'skipped'
 
 # All error status constants.
 STATUS_ERRORS = (STATUS_CONNECTION_ERROR, STATUS_PUSH_ERROR,
                  STATUS_ERROR, STATUS_PARENT_ERROR)
+
+
+class ArchivingError(Exception):
+    pass
 
 
 @contextlib.contextmanager
@@ -148,6 +153,7 @@ class Image(object):
         self.logger = logger
         self.children = []
         self.plugins = []
+        self.additions = []
 
     def copy(self):
         c = Image(self.name, self.canonical_name, self.path,
@@ -159,6 +165,8 @@ class Image(object):
             c.children = list(self.children)
         if self.plugins:
             c.plugins = list(self.plugins)
+        if self.additions:
+            c.additions = list(self.additions)
         return c
 
     def __repr__(self):
@@ -250,7 +258,7 @@ class BuildTask(DockerTask):
 
     def run(self):
         self.builder(self.image)
-        if self.image.status == STATUS_BUILT:
+        if self.image.status in (STATUS_BUILT, STATUS_SKIPPED):
             self.success = True
 
     @property
@@ -354,7 +362,45 @@ class BuildTask(DockerTask):
         return buildargs
 
     def builder(self, image):
+
+        def make_an_archive(items, arcname, item_child_path=None):
+            if not item_child_path:
+                item_child_path = arcname
+            archives = list()
+            items_path = os.path.join(image.path, item_child_path)
+            for item in items:
+                archive_path = self.process_source(image, item)
+                if image.status in STATUS_ERRORS:
+                    raise ArchivingError
+                archives.append(archive_path)
+            if archives:
+                for archive in archives:
+                    with tarfile.open(archive, 'r') as archive_tar:
+                        archive_tar.extractall(path=items_path)
+            else:
+                try:
+                    os.mkdir(items_path)
+                except OSError as e:
+                    if e.errno == errno.EEXIST:
+                        self.logger.info(
+                            'Directory %s already exist. Skipping.',
+                            items_path)
+                    else:
+                        self.logger.error('Failed to create directory %s: %s',
+                                          items_path, e)
+                        image.status = STATUS_CONNECTION_ERROR
+                        raise ArchivingError
+            arc_path = os.path.join(image.path, '%s-archive' % arcname)
+            with tarfile.open(arc_path, 'w') as tar:
+                tar.add(items_path, arcname=arcname)
+            return len(os.listdir(items_path))
+
         self.logger.debug('Processing')
+
+        if image.status == STATUS_SKIPPED:
+            self.logger.info('Skipping %s (--skip-parents)' % image.name)
+            return
+
         if image.status == STATUS_UNMATCHED:
             return
 
@@ -373,35 +419,29 @@ class BuildTask(DockerTask):
             if image.status in STATUS_ERRORS:
                 return
 
-        plugin_archives = list()
-        plugins_path = os.path.join(image.path, 'plugins')
-        for plugin in image.plugins:
-            archive_path = self.process_source(image, plugin)
-            if image.status in STATUS_ERRORS:
-                return
-            plugin_archives.append(archive_path)
-        if plugin_archives:
-            for plugin_archive in plugin_archives:
-                with tarfile.open(plugin_archive, 'r') as plugin_archive_tar:
-                    plugin_archive_tar.extractall(path=plugins_path)
+        try:
+            plugins_am = make_an_archive(image.plugins, 'plugins')
+        except ArchivingError:
+            self.logger.error(
+                "Failed turning any plugins into a plugins archive")
+            return
         else:
-            try:
-                os.mkdir(plugins_path)
-            except OSError as e:
-                if e.errno == errno.EEXIST:
-                    self.logger.info('Directory %s already exist. Skipping.',
-                                     plugins_path)
-                else:
-                    self.logger.error('Failed to create directory %s: %s',
-                                      plugins_path, e)
-                    image.status = STATUS_CONNECTION_ERROR
-                    return
-        with tarfile.open(os.path.join(image.path, 'plugins-archive'),
-                          'w') as tar:
-            tar.add(plugins_path, arcname='plugins')
+            self.logger.debug(
+                "Turned %s plugins into plugins archive",
+                plugins_am)
+        try:
+            additions_am = make_an_archive(image.additions, 'additions')
+        except ArchivingError:
+            self.logger.error(
+                "Failed turning any additions into a additions archive")
+            return
+        else:
+            self.logger.debug(
+                "Turned %s additions into additions archive",
+                additions_am)
 
         # Pull the latest image for the base distro only
-        pull = True if image.parent is None else False
+        pull = self.conf.pull if image.parent is None else False
 
         buildargs = self.update_buildargs()
         try:
@@ -496,8 +536,10 @@ class KollaWorker(object):
         self.base_tag = conf.base_tag
         self.install_type = conf.install_type
         self.tag = conf.tag
+        self.base_arch = conf.base_arch
         self.images = list()
-        rpm_setup_config = filter(None, conf.rpm_setup_config)
+        rpm_setup_config = ([repo_file for repo_file in
+                             conf.rpm_setup_config if repo_file is not None])
         self.rpm_setup = self.build_rpm_setup(rpm_setup_config)
 
         rh_base = ['centos', 'oraclelinux', 'rhel']
@@ -532,13 +574,19 @@ class KollaWorker(object):
         self.image_statuses_bad = dict()
         self.image_statuses_good = dict()
         self.image_statuses_unmatched = dict()
+        self.image_statuses_skipped = dict()
         self.maintainer = conf.maintainer
 
     def _get_images_dir(self):
         possible_paths = (
             PROJECT_ROOT,
             os.path.join(sys.prefix, 'share/kolla'),
-            os.path.join(sys.prefix, 'local/share/kolla'))
+            os.path.join(sys.prefix, 'local/share/kolla'),
+            # NOTE(zioproto): When Kolla is used within a snap, the env var
+            #                 $SNAP is the directory where the snap is mounted.
+            #                 https://github.com/openstack/snap-kolla
+            #                 More info in snap packages https://snapcraft.io
+            os.path.join(os.environ.get('SNAP', ''), 'share/kolla'))
 
         for path in possible_paths:
             image_path = os.path.join(path, 'docker')
@@ -556,6 +604,7 @@ class KollaWorker(object):
         """Generates a list of docker commands based on provided configuration.
 
         :param rpm_setup_config: A list of .rpm or .repo paths or URLs
+                                 (can be empty)
         :return: A list of docker commands
         """
         rpm_setup = list()
@@ -573,6 +622,8 @@ class KollaWorker(object):
                 else:
                     # Copy .repo file from filesystem
                     cmd = "COPY {} /etc/yum.repos.d/".format(config)
+            elif config is None:
+                cmd = ''
             else:
                 raise exception.KollaRpmSetupUnknownConfig(
                     'RPM setup must be provided as .rpm or .repo files.'
@@ -598,10 +649,14 @@ class KollaWorker(object):
 
     def setup_working_dir(self):
         """Creates a working directory for use while building"""
-        ts = time.time()
-        ts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H-%M-%S_')
-        self.temp_dir = tempfile.mkdtemp(prefix='kolla-' + ts)
-        self.working_dir = os.path.join(self.temp_dir, 'docker')
+        if self.conf.work_dir:
+            self.working_dir = os.path.join(self.conf.work_dir, 'docker')
+        else:
+            ts = time.time()
+            ts = datetime.datetime.fromtimestamp(ts).strftime(
+                '%Y-%m-%d_%H-%M-%S_')
+            self.temp_dir = tempfile.mkdtemp(prefix='kolla-' + ts)
+            self.working_dir = os.path.join(self.temp_dir, 'docker')
         shutil.copytree(self.images_dir, self.working_dir)
         self.copy_apt_files()
         LOG.debug('Created working dir: %s', self.working_dir)
@@ -631,6 +686,20 @@ class KollaWorker(object):
             'debian_package_install': jinja_methods.debian_package_install,
         }
 
+    def get_users(self):
+        all_sections = (set(six.iterkeys(self.conf._groups)) |
+                        set(self.conf.list_all_sections()))
+        ret = dict()
+        for section in all_sections:
+            match = re.search('^.*-user$', section)
+            if match:
+                user = self.conf[match.group(0)]
+                ret[match.group(0)[:-5]] = {
+                    'uid': user.uid,
+                    'gid': user.gid,
+                }
+        return ret
+
     def create_dockerfiles(self):
         kolla_version = version.version_info.cached_version_string()
         supported_distro_release = common_config.DISTRO_RELEASE.get(
@@ -638,9 +707,13 @@ class KollaWorker(object):
         for path in self.docker_build_paths:
             template_name = "Dockerfile.j2"
             image_name = path.split("/")[-1]
+            ts = time.time()
+            build_date = datetime.datetime.fromtimestamp(ts).strftime(
+                '%Y%m%d')
             values = {'base_distro': self.base,
                       'base_image': self.conf.base_image,
                       'base_distro_tag': self.base_tag,
+                      'base_arch': self.base_arch,
                       'supported_distro_release': supported_distro_release,
                       'install_metatype': self.install_metatype,
                       'image_prefix': self.image_prefix,
@@ -650,7 +723,9 @@ class KollaWorker(object):
                       'maintainer': self.maintainer,
                       'kolla_version': kolla_version,
                       'image_name': image_name,
-                      'rpm_setup': self.rpm_setup}
+                      'users': self.get_users(),
+                      'rpm_setup': self.rpm_setup,
+                      'build_date': build_date}
             env = jinja2.Environment(  # nosec: not used to render HTML
                 loader=jinja2.FileSystemLoader(self.working_dir))
             env.filters.update(self._get_filters())
@@ -661,11 +736,11 @@ class KollaWorker(object):
 
             template = env.get_template(tpl_path)
             if self.conf.template_override:
-                template_path = os.path.dirname(self.conf.template_override)
-                template_name = os.path.basename(self.conf.template_override)
+                tpl_dict = self._merge_overrides(self.conf.template_override)
+                template_name = os.path.basename(tpl_dict.keys()[0])
                 values['parent_template'] = template
                 env = jinja2.Environment(  # nosec: not used to render HTML
-                    loader=jinja2.FileSystemLoader(template_path))
+                    loader=jinja2.DictLoader(tpl_dict))
                 env.filters.update(self._get_filters())
                 env.globals.update(self._get_methods())
                 template = env.get_template(template_name)
@@ -676,6 +751,18 @@ class KollaWorker(object):
                 LOG.debug(content)
                 f.write(content)
                 LOG.debug("Wrote it to %s", content_path)
+
+    def _merge_overrides(self, overrides):
+        tpl_name = os.path.basename(overrides[0])
+        with open(overrides[0], 'r') as f:
+            tpl_content = f.read()
+        for override in overrides[1:]:
+            with open(override, 'r') as f:
+                cont = f.read()
+            # Remove extends header
+            cont = re.sub(r'.*\{\%.*extends.*\n', '', cont)
+            tpl_content += cont
+        return {tpl_name: tpl_content}
 
     def find_dockerfiles(self):
         """Recursive search for Dockerfiles in the working directory"""
@@ -692,7 +779,8 @@ class KollaWorker(object):
 
     def cleanup(self):
         """Remove temp files"""
-        shutil.rmtree(self.temp_dir)
+        if not self.conf.work_dir:
+            shutil.rmtree(self.temp_dir)
 
     def filter_images(self):
         """Filter which images to build"""
@@ -715,14 +803,18 @@ class KollaWorker(object):
         if filter_:
             patterns = re.compile(r"|".join(filter_).join('()'))
             for image in self.images:
-                if image.status == STATUS_MATCHED:
+                if image.status in (STATUS_MATCHED, STATUS_SKIPPED):
                     continue
                 if re.search(patterns, image.name):
                     image.status = STATUS_MATCHED
                     while (image.parent is not None and
-                           image.parent.status != STATUS_MATCHED):
+                           image.parent.status not in (STATUS_MATCHED,
+                                                       STATUS_SKIPPED)):
                         image = image.parent
-                        image.status = STATUS_MATCHED
+                        if self.conf.skip_parents:
+                            image.status = STATUS_SKIPPED
+                        else:
+                            image.status = STATUS_MATCHED
                         LOG.debug('Image %s matched regex', image.name)
                 else:
                     image.status = STATUS_UNMATCHED
@@ -743,13 +835,14 @@ class KollaWorker(object):
             'built': [],
             'failed': [],
             'not_matched': [],
+            'skipped': [],
         }
 
         if self.image_statuses_good:
             LOG.info("=========================")
             LOG.info("Successfully built images")
             LOG.info("=========================")
-            for name in self.image_statuses_good.keys():
+            for name in sorted(self.image_statuses_good.keys()):
                 LOG.info(name)
                 results['built'].append({
                     'name': name,
@@ -759,7 +852,7 @@ class KollaWorker(object):
             LOG.info("===========================")
             LOG.info("Images that failed to build")
             LOG.info("===========================")
-            for name, status in self.image_statuses_bad.items():
+            for name, status in sorted(self.image_statuses_bad.items()):
                 LOG.error('%s Failed with status: %s', name, status)
                 results['failed'].append({
                     'name': name,
@@ -776,25 +869,40 @@ class KollaWorker(object):
                     'name': name,
                 })
 
+        if self.image_statuses_skipped:
+            LOG.debug("=====================================")
+            LOG.debug("Images skipped due to --skip-parents")
+            LOG.debug("=====================================")
+            for name in self.image_statuses_skipped.keys():
+                LOG.debug(name)
+                results['skipped'].append({
+                    'name': name,
+                })
+
         return results
 
     def get_image_statuses(self):
         if any([self.image_statuses_bad,
                 self.image_statuses_good,
-                self.image_statuses_unmatched]):
+                self.image_statuses_unmatched,
+                self.image_statuses_skipped]):
             return (self.image_statuses_bad,
                     self.image_statuses_good,
-                    self.image_statuses_unmatched)
+                    self.image_statuses_unmatched,
+                    self.image_statuses_skipped)
         for image in self.images:
             if image.status == STATUS_BUILT:
                 self.image_statuses_good[image.name] = image.status
             elif image.status == STATUS_UNMATCHED:
                 self.image_statuses_unmatched[image.name] = image.status
+            elif image.status == STATUS_SKIPPED:
+                self.image_statuses_skipped[image.name] = image.status
             else:
                 self.image_statuses_bad[image.name] = image.status
         return (self.image_statuses_bad,
                 self.image_statuses_good,
-                self.image_statuses_unmatched)
+                self.image_statuses_unmatched,
+                self.image_statuses_skipped)
 
     def build_image_list(self):
         def process_source_installation(image, section):
@@ -823,8 +931,15 @@ class KollaWorker(object):
             image_name = os.path.basename(path)
             canonical_name = (self.namespace + '/' + self.image_prefix +
                               image_name + ':' + self.tag)
+            parent_search_pattern = re.compile(r'^FROM.*$', re.MULTILINE)
+            match = re.search(parent_search_pattern, content)
+            if match:
+                parent_name = match.group(0).split(' ')[1]
+            else:
+                parent_name = ''
+            del match
             image = Image(image_name, canonical_name, path,
-                          parent_name=content.split(' ')[1].split('\n')[0],
+                          parent_name=parent_name,
                           logger=make_a_logger(self.conf, image_name))
 
             if self.install_type == 'source':
@@ -848,6 +963,20 @@ class KollaWorker(object):
                                   plugin)
                     image.plugins.append(
                         process_source_installation(image, plugin))
+                for addition in [
+                    match.group(0) for match in
+                    (re.search('^{}-additions-.+'.format(image.name),
+                     section) for section in all_sections) if match]:
+                    try:
+                        self.conf.register_opts(
+                            common_config.get_source_opts(),
+                            addition
+                        )
+                    except cfg.DuplicateOptError:
+                        LOG.debug('Addition %s already registered in config',
+                                  addition)
+                    image.additions.append(
+                        process_source_installation(image, addition))
 
             self.images.append(image)
 
@@ -870,7 +999,9 @@ class KollaWorker(object):
             f.write(dot.source)
 
     def list_images(self):
-        for count, image in enumerate(self.images):
+        for count, image in enumerate([
+            image for image in self.images if image.status == STATUS_MATCHED
+        ]):
             print(count + 1, ':', image.name)
 
     def list_dependencies(self):
@@ -973,6 +1104,8 @@ def run_build():
         return
     if conf.list_images:
         kolla.build_image_list()
+        kolla.find_parents()
+        kolla.filter_images()
         kolla.list_images()
         return
     if conf.list_dependencies:

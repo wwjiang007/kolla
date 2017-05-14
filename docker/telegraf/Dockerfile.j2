@@ -1,23 +1,26 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block telegraf_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
-{% set telegraf_packages = ['telegraf'] %}
+{{ macros.configure_user(name='telegraf', homedir='/etc/telegraf') }}
+
+{% set telegraf_packages = [
+    'net-tools',
+    'telegraf'
+] %}
 {{ macros.install_packages(telegraf_packages | customizable("packages")) }}
 
 COPY telegraf_sudoers /etc/sudoers.d/kolla_telegraf_sudoers
-COPY extend_start.sh /usr/local/bin/kolla_telegraf_extend_start
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
 
 RUN chmod 750 /etc/sudoers.d \
     && chmod 440 /etc/sudoers.d/kolla_telegraf_sudoers \
-    && chmod 755 /usr/local/bin/kolla_telegraf_extend_start \
-    && usermod -a -G kolla telegraf
+    && chmod 755 /usr/local/bin/kolla_extend_start
 
 {% block telegraf_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER telegraf

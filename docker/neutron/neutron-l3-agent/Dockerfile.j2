@@ -1,12 +1,12 @@
 FROM {{ namespace }}/{{ image_prefix }}neutron-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block neutron_l3_agent_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['ubuntu', 'debian'] %}
+    {% if base_distro in ['debian', 'ubuntu'] %}
 
         {% set neutron_l3_agent_packages = [
             'neutron-l3-agent'
@@ -19,6 +19,5 @@ MAINTAINER {{ maintainer }}
 
 {% block neutron_l3_agent_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER neutron

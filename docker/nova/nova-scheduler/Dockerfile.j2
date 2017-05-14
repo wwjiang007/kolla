@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}nova-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block nova_scheduler_header %}{% endblock %}
 
@@ -12,7 +12,7 @@ MAINTAINER {{ maintainer }}
             'openstack-nova-scheduler'
         ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set nova_scheduler_packages = [
             'nova-scheduler'
@@ -26,6 +26,5 @@ MAINTAINER {{ maintainer }}
 
 {% block nova_scheduler_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER nova

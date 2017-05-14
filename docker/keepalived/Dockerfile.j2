@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block keepalived_header %}{% endblock %}
 
@@ -11,7 +11,7 @@ MAINTAINER {{ maintainer }}
         'keepalived',
         'socat'
     ] %}
-{% elif base_distro in ['ubuntu', 'debian'] %}
+{% elif base_distro in ['debian', 'ubuntu'] %}
     {% set keepalived_packages = [
         'keepalived',
         'socat'
@@ -26,4 +26,3 @@ RUN chmod 755 /usr/local/bin/kolla_extend_start /check_alive.sh
 
 {% block keepalived_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

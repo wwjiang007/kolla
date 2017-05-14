@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}neutron-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block neutron_linuxbridge_agent_header %}{% endblock %}
 
@@ -13,7 +13,7 @@ MAINTAINER {{ maintainer }}
             'openstack-neutron-linuxbridge'
         ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set neutron_linuxbridge_agent_packages = [
             'ebtables',
@@ -35,6 +35,5 @@ MAINTAINER {{ maintainer }}
 
 {% block neutron_linuxbridge_agent_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER neutron

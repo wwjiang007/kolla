@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function bootstrap_db {
-    mysqld_safe --wsrep-new-cluster &
+    mysqld_safe --wsrep-new-cluster --skip-networking --wsrep-on=OFF &
     # Wait for the mariadb server to be "Ready" before starting the security reset with a max timeout
     # NOTE(huikang): the location of mysql's socket file varies depending on the OS distributions.
     # Querying the cluster status has to be executed after the existence of mysql.sock and mariadb.pid.
@@ -22,6 +22,7 @@ function bootstrap_db {
         CLUSTER_READY=$(mysql -u root --exec="SHOW STATUS LIKE 'wsrep_ready'" | grep ON)
         TIMEOUT=${DB_MAX_TIMEOUT:-60}
         while [[ -z "${CLUSTER_READY}" ]]; do
+            CLUSTER_READY=$(mysql -u root --exec="SHOW STATUS LIKE 'wsrep_ready'" | grep ON)
             if [[ ${TIMEOUT} -gt 0 ]]; then
                 let TIMEOUT-=1
                 sleep 1

@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block openstack_base_header %}{% endblock %}
 
@@ -40,7 +40,6 @@ MAINTAINER {{ maintainer }}
             'libxslt',
             'libyaml',
             'MySQL-python',
-            'Percona-Server-shared-56',
             'pyOpenSSL',
             'pyparsing',
             'python2-cffi',
@@ -74,11 +73,13 @@ MAINTAINER {{ maintainer }}
             'python-alembic',
             'python-amqp',
             'python-anyjson',
+            'python-aodhclient',
             'python-barbicanclient',
             'python-beaker',
             'python-cachetools',
             'python-ceilometerclient',
             'python-cliff',
+            'python-cloudkittyclient',
             'python-cmd2',
             'python-congressclient',
             'python-contextlib2',
@@ -92,6 +93,7 @@ MAINTAINER {{ maintainer }}
             'python-fixtures',
             'python-futures',
             'python-glanceclient',
+            'python-gnocchiclient',
             'python-heatclient',
             'python-httplib2',
             'python-idna',
@@ -122,6 +124,7 @@ MAINTAINER {{ maintainer }}
             'python-neutronclient',
             'python-novaclient',
             'python-openstackclient',
+            'python-osprofiler',
             'python-paste',
             'python-paste-deploy',
             'python-pbr',
@@ -157,34 +160,44 @@ MAINTAINER {{ maintainer }}
             'sysvinit-tools',
             'tcp_wrappers-libs'
         ] %}
-    {% elif base_distro in ['ubuntu'] %}
+
+        {% if base_arch == 'x86_64' %}
+            {% set openstack_base_packages = openstack_base_packages + [
+                'Percona-Server-shared-56'
+            ] %}
+        {% endif %}
+
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
 # This will prevent questions from being asked during the install
 ENV DEBIAN_FRONTEND noninteractive
         {% set openstack_base_packages = [
+            'openssl',
+            'patch',
+            'python-aodhclient',
             'python-barbicanclient',
             'python-ceilometerclient',
             'python-congressclient',
             'python-designateclient',
+            'python-gnocchiclient',
             'python-heatclient',
             'python-ironicclient',
+            'python-keystoneclient',
             'python-magnumclient',
             'python-manilaclient',
             'python-memcache',
             'python-mistralclient',
             'python-muranoclient',
             'python-mysqldb',
+            'python-openstackclient',
+            'python-oslo.log',
+            'python-osprofiler',
             'python-pip',
+            'python-pymysql',
             'python-saharaclient',
             'python-swiftclient',
             'python-troveclient',
-            'python-zaqarclient',
-            'python-openstackclient',
-            'python-pymysql',
-            'python-keystoneclient',
-            'python-oslo.log',
-            'openssl',
-            'patch'
+            'python-zaqarclient'
         ] %}
     {% endif %}
 
@@ -199,7 +212,6 @@ ENV DEBIAN_FRONTEND noninteractive
             'libxml2-devel',
             'libxslt-devel',
             'libyaml-devel',
-            'MariaDB-devel',
             'openldap-devel',
             'openssl-devel',
             'postgresql',
@@ -208,22 +220,51 @@ ENV DEBIAN_FRONTEND noninteractive
             'sqlite-devel',
             'zip'
         ] %}
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+
+        # On x86-64 packages from external repos are used. lowercase names goes
+        # conflicts and build fails. Other architectures use standard CentOS
+        # packages.
+        {% if base_arch == 'x86_64' %}
+            {% set openstack_base_packages = openstack_base_packages + [
+                'MariaDB-devel'
+            ] %}
+        {% else %}
+            {% set openstack_base_packages = openstack_base_packages + [
+                'mariadb-devel'
+            ] %}
+        {% endif %}
+
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set openstack_base_packages = [
-            'ca-certificates',
             'build-essential',
-            'python-dev',
-            'libssl-dev',
-            'libmariadbclient-dev',
-            'libxslt1-dev',
+            'ca-certificates',
+            'git',
             'libffi-dev',
+            'libssl-dev',
             'libxml2-dev',
+            'libxslt1-dev',
             'libyaml-dev',
             'libz-dev',
             'pkg-config',
-            'git',
+            'python-dev',
             'zip'
         ] %}
+
+        {% if base_arch == 'aarch64' and base_distro == 'ubuntu' %}
+             {% set openstack_base_packages = openstack_base_packages + [
+                 'libmysqlclient-dev'
+             ] %}
+        {% else %}
+             {% set openstack_base_packages = openstack_base_packages + [
+                 'libmariadbclient-dev'
+             ] %}
+        {% endif %}
+        # Debian/stretch ships libmysqlclient.so in separate package
+        {% if base_distro == 'debian' %}
+            {% set openstack_base_packages = openstack_base_packages + [
+                'libmariadbclient-dev-compat'
+            ] %}
+        {% endif %}
     {% endif %}
 
 {{ macros.install_packages(openstack_base_packages | customizable("packages")) }}
@@ -248,6 +289,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
         'alembic',
         'amqp',
         'anyjson',
+        'aodhclient',
         'appdirs',
         'cachetools',
         'cliff',
@@ -262,6 +304,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
         'functools32',
         'futures',
         'futurist',
+        'gnocchiclient',
         'greenlet',
         'iso8601',
         'jinja2',
@@ -290,6 +333,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
         'oslo.service',
         'oslo.utils',
         'oslo.vmware',
+        'osprofiler',
         'pbr',
         'pika',
         'pika-pool',
@@ -303,6 +347,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
         'python-barbicanclient',
         'python-ceilometerclient',
         'python-cinderclient',
+        'python-cloudkittyclient',
         'python-congressclient',
         'python-dateutil',
         'python-designateclient',
@@ -342,12 +387,13 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
 ADD openstack-base-archive /openstack-base-source
 RUN ln -s openstack-base-source/* /requirements \
     && mkdir -p /var/lib/kolla \
-    && pip --no-cache-dir install -U virtualenv \
+    && {{ macros.install_pip(['virtualenv'], constraints = false)}} \
     && virtualenv --system-site-packages /var/lib/kolla/venv
-{{ macros.install_pip(openstack_base_pip_packages | customizable("pip_packages")) }}
+
 ENV PATH /var/lib/kolla/venv/bin:$PATH
+
+RUN {{ macros.install_pip(openstack_base_pip_packages | customizable("pip_packages")) }}
 
 {% endif %}
 
 {% block openstack_base_footer %}{% endblock %}
-{% block footer %}{% endblock %}

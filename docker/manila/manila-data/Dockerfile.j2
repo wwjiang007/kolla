@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}manila-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block manila_data_header %}{% endblock %}
 
@@ -11,7 +11,7 @@ MAINTAINER {{ maintainer }}
 RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
     && /bin/false
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set manila_data_packages = [
                 'manila-data'
@@ -26,7 +26,7 @@ RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
                 'nfs-utils'
         ] %}
 
-     {% elif base_distro in ['ubuntu', 'debian'] %}
+     {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set manila_data_packages = [
                 'nfs-common'
@@ -40,6 +40,5 @@ RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
 
 {% block manila_data_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER manila

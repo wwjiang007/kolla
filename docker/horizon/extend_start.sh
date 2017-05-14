@@ -51,10 +51,26 @@ function config_designate_dashboard {
     done
 }
 
+function config_freezer_ui {
+    for file in ${SITE_PACKAGES}/disaster_recovery/enabled/_*[^__].py; do
+        config_dashboard "${ENABLE_FREEZER}" \
+            "${SITE_PACKAGES}/disaster_recovery/enabled/${file##*/}" \
+            "${SITE_PACKAGES}/openstack_dashboard/local/enabled/${file##*/}"
+    done
+}
+
 function config_ironic_dashboard {
     for file in ${SITE_PACKAGES}/ironic_ui/enabled/_*[^__].py; do
         config_dashboard "${ENABLE_IRONIC}" \
             "${SITE_PACKAGES}/ironic_ui/enabled/${file##*/}" \
+            "${SITE_PACKAGES}/openstack_dashboard/local/enabled/${file##*/}"
+    done
+}
+
+function config_karbor_dashboard {
+    for file in ${SITE_PACKAGES}/karbor_dashboard/enabled/_*[^__].py; do
+        config_dashboard "${ENABLE_KARBOR}" \
+            "${SITE_PACKAGES}/karbor_dashboard/enabled/${file##*/}" \
             "${SITE_PACKAGES}/openstack_dashboard/local/enabled/${file##*/}"
     done
 }
@@ -75,9 +91,24 @@ function config_manila_ui {
     done
 }
 
+function config_murano_dashboard {
+    for file in ${SITE_PACKAGES}/muranodashboard/local/enabled/_*[^__].py; do
+        config_dashboard "${ENABLE_MURANO}" \
+            "${SITE_PACKAGES}/muranodashboard/local/enabled/${file##*/}" \
+            "${SITE_PACKAGES}/openstack_dashboard/local/enabled/${file##*/}"
+    done
+    config_dashboard "${ENABLE_MURANO}"\
+        "${SITE_PACKAGES}/muranodashboard/conf/murano_policy.json" \
+        "/etc/openstack-dashboard/murano_policy.json"
+
+    config_dashboard "${ENABLE_MURANO}"\
+        "${SITE_PACKAGES}/muranodashboard/local/local_settings.d/_50_murano.py" \
+        "${SITE_PACKAGES}/openstack_dashboard/local/local_settings.d/_50_murano.py"
+}
+
 function config_mistral_dashboard {
     config_dashboard "${ENABLE_MISTRAL}" \
-        "${SITE_PACKAGES}/mistral_dashboard/_50_mistral.py.example" \
+        "${SITE_PACKAGES}/mistraldashboard/enabled/_50_mistral.py" \
         "${SITE_PACKAGES}/openstack_dashboard/local/enabled/_50_mistral.py"
 }
 
@@ -103,12 +134,12 @@ function config_searchlight_ui {
     done
 
     config_dashboard "${ENABLE_SEARCHLIGHT}" \
-        "${SITE_PACKAGES}searchlight_ui/local_settings.d/_1001_search_settings.py" \
+        "${SITE_PACKAGES}/searchlight_ui/local_settings.d/_1001_search_settings.py" \
         "${SITE_PACKAGES}/openstack_dashboard/local/local_settings.d/_1001_search_settings.py"
 
     config_dashboard "${ENABLE_SEARCHLIGHT}" \
-        "${SITE_PACKAGES}searchlight_ui/conf/searchlight_policy.json" \
-        "${SITE_PACKAGES}/openstack_dashboard/conf/searchlight_policy.json"
+        "${SITE_PACKAGES}/searchlight_ui/conf/searchlight_policy.json" \
+        "/etc/openstack-dashboard/searchlight_policy.json"
 }
 
 function config_senlin_dashboard {
@@ -120,13 +151,23 @@ function config_senlin_dashboard {
 
     config_dashboard "${ENABLE_SENLIN}" \
         "${SITE_PACKAGES}/senlin_dashboard/conf/senlin_policy.json" \
-        "${SITE_PACKAGES}/openstack_dashboard/conf/senlin_policy.json"
+        "/etc/openstack-dashboard/senlin_policy.json"
 }
 
 function config_solum_dashboard {
-    config_dashboard "${ENABLE_SOLUM}" \
-        "${SITE_PACKAGES}/solum_dashboard/_50_solum.py.example" \
-        "${SITE_PACKAGES}/openstack_dashboard/local/enabled/_50_solum.py"
+    for file in ${SITE_PACKAGES}/solumdashboard/local/enabled/_*[^__].py; do
+        config_dashboard "${ENABLE_SOLUM}" \
+            "${SITE_PACKAGES}/solumdashboard/local/enabled/${file##*/}" \
+            "${SITE_PACKAGES}/openstack_dashboard/local/enabled/${file##*/}"
+    done
+}
+
+function config_tacker_dashboard {
+    for file in ${SITE_PACKAGES}/tacker_horizon/enabled/_*[^__].py; do
+        config_dashboard "${ENABLE_TACKER}" \
+            "${SITE_PACKAGES}/tacker_horizon/enabled/${file##*/}" \
+            "${SITE_PACKAGES}/openstack_dashboard/local/enabled/${file##*/}"
+    done
 }
 
 function config_trove_dashboard {
@@ -146,7 +187,7 @@ function config_watcher_dashboard {
 
     config_dashboard "${ENABLE_WATCHER}" \
             "${SITE_PACKAGES}/watcher_dashboard/conf/watcher_policy.json" \
-            "${SITE_PACKAGES}/openstack_dashboard/conf/watcher_policy.json"
+            "/etc/openstack-dashboard/watcher_policy.json"
 }
 
 function config_zaqar_dashboard {
@@ -159,15 +200,19 @@ function config_zaqar_dashboard {
 
 config_cloudkitty_dashboard
 config_designate_dashboard
+config_freezer_ui
 config_ironic_dashboard
+config_karbor_dashboard
 config_magnum_dashboard
 config_manila_ui
 config_mistral_dashboard
+config_murano_dashboard
 config_neutron_lbaas
 config_sahara_dashboard
 config_searchlight_ui
 config_senlin_dashboard
 config_solum_dashboard
+config_tacker_dashboard
 config_trove_dashboard
 config_watcher_dashboard
 config_zaqar_dashboard

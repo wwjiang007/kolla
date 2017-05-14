@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}heat-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block heat_engine_header %}{% endblock %}
 
@@ -12,7 +12,7 @@ MAINTAINER {{ maintainer }}
             'python-zaqarclient',
             'openstack-heat-engine'
         ] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set heat_engine_packages = ['heat-engine'] %}
     {% endif %}
 {{ macros.install_packages(heat_engine_packages | customizable("packages")) }}
@@ -20,7 +20,5 @@ MAINTAINER {{ maintainer }}
 {% endif %}
 {% block heat_engine_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-
-{{ include_footer }}
 
 USER heat

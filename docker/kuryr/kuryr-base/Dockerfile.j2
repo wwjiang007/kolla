@@ -1,7 +1,9 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block kuryr_base_header %}{% endblock %}
+
+{% import "macros.j2" as macros with context %}
 
 {% if install_type == 'binary' %}
 
@@ -11,14 +13,20 @@ RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
 {% elif install_type == 'source' %}
 
 ADD kuryr-base-archive /kuryr-base-source
+
+{% set kuryr_base_pip_packages = [
+    '/kuryr-base'
+] %}
+
 # NOTE(Jeffrey4l): remove kuryr-lib constraint in upper-constraints.txt file.
 # Otherwise, it will be failed.
 RUN ln -s kuryr-base-source/* kuryr-base \
     && sed -i 's|^kuryr-lib===.*$||g' requirements/upper-constraints.txt \
-    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /kuryr-base
+    && {{ macros.install_pip(kuryr_base_pip_packages | customizable("pip_packages")) }}
 
 {% endif %}
 
 COPY extend_start.sh /usr/local/bin/kolla_extend_start
+RUN chmod 755 /usr/local/bin/kolla_extend_start
 
 {% block kuryr_base_footer %}{% endblock %}

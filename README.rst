@@ -37,8 +37,10 @@ Getting Started
 Learn about Kolla by reading the documentation online
 `docs.openstack.org <http://docs.openstack.org/developer/kolla/>`__.
 
-Get started by reading the `Developer
-Quickstart <http://docs.openstack.org/developer/kolla/quickstart.html>`__.
+Get started by reading the `Kolla Ansible Developer
+Quickstart <https://docs.openstack.org/developer/kolla-ansible/quickstart.html>`__
+or the `Kolla Kubernetes Developer
+Quickstart <https://docs.openstack.org/developer/kolla-kubernetes/quickstart.html>`__.
 
 The Kolla Repository
 ====================
@@ -46,13 +48,13 @@ The Kolla Repository
 The Kolla repository is one of three deliverables of the OpenStack Kolla
 project.  The three deliverables that make up the Kolla project are:
 
-===============   =====================================================
-Deliverable       Repository
-===============   =====================================================
-kolla             https://git.openstack.org/openstack/kolla
-kolla-ansible     https://git.openstack.org/openstack/kolla-ansible
-kolla-kubernetes  https://git.openstack.org/openstack/kolla-kubernetes
-===============   =====================================================
+================   =====================================================
+Deliverable        Repository
+================   =====================================================
+kolla              https://git.openstack.org/openstack/kolla
+kolla-ansible      https://git.openstack.org/openstack/kolla-ansible
+kolla-kubernetes   https://git.openstack.org/openstack/kolla-kubernetes
+================   =====================================================
 
 The `Docker images <https://docs.docker.com/engine/tutorials/dockerimages/>`__
 are built by the Kolla project maintainers. A detailed process for
@@ -87,7 +89,6 @@ Kolla provides images to deploy the following OpenStack projects:
 - `Horizon <http://docs.openstack.org/developer/horizon/>`__
 - `Ironic <http://docs.openstack.org/developer/ironic/>`__
 - `Karbor <http://docs.openstack.org/developer/karbor/>`__
-- `kafka <http://kafka.apache.org/documentation/>`__
 - `Keystone <http://docs.openstack.org/developer/keystone/>`__
 - `Kuryr <http://docs.openstack.org/developer/kuryr/>`__
 - `Magnum <http://docs.openstack.org/developer/magnum/>`__
@@ -111,6 +112,7 @@ Kolla provides images to deploy the following OpenStack projects:
 - `Vmtp <http://vmtp.readthedocs.io/en/latest/>`__
 - `Watcher <http://docs.openstack.org/developer/watcher/>`__
 - `Zaqar <http://docs.openstack.org/developer/zaqar/>`__
+- `Zun <http://wiki.openstack.org/wiki/zun>`__
 
 Infrastructure components
 -------------------------
@@ -118,24 +120,31 @@ Infrastructure components
 Kolla provides images to deploy the following infrastructure components:
 
 - `Ceph <http://ceph.com/>`__ implementation for Cinder, Glance and Nova
-- `collectd <https://collectd.org>`__,
+- `Collectd <https://collectd.org>`__,
   `InfluxDB <https://influxdata.com/time-series-platform/influxdb/>`__, and
   `Grafana <http://grafana.org>`__ for performance monitoring.
 - `Elasticsearch <https://www.elastic.co/de/products/elasticsearch>`__ and
-   `Kibana <https://www.elastic.co/de/products/kibana>`__ to search, analyze,
-   and visualize log messages.
+  `Kibana <https://www.elastic.co/de/products/kibana>`__ to search, analyze,
+  and visualize log messages.
+- `Etcd <https://coreos.com/etcd/>`__ a distributed key value store that provides
+  a reliable way to store data across a cluster of machines.
+- `Fluentd <https://www.fluentd.org/>`__ as an open source data collector
+  for unified logging layer.
 - `HAProxy <http://www.haproxy.org/>`__ and
   `Keepalived <http://www.keepalived.org/>`__ for high availability of services
   and their endpoints.
-- `Heka <http://hekad.readthedocs.org/>`__ A distributed and
-  scalable logging system for OpenStack services.
+- `Kafka <http://kafka.apache.org/documentation/>`__ A distributed streaming
+  platform.
 - `MariaDB and Galera Cluster <https://mariadb.com/kb/en/mariadb/galera-cluster/>`__
-  for highly available MySQL databases
+  for highly available MySQL databases.
+- `Memcached <https://www.memcached.org/>`__ a distributed memory object caching system.
 - `MongoDB <https://www.mongodb.org/>`__ as a database back end for Ceilometer
-  and Gnocchi
-- `Open vSwitch <http://openvswitch.org/>`__ and Linuxbridge back ends for Neutron
+  and Gnocchi.
+- `Open vSwitch <http://openvswitch.org/>`__ and Linuxbridge back ends for Neutron.
 - `RabbitMQ <https://www.rabbitmq.com/>`__ as a messaging back end for
   communication between services.
+- `Telegraf <https://www.docs.influxdata.com/telegraf/>`__ as a plugin-driven server
+  agent for collecting & reporting metrics.
 
 Directories
 ===========
@@ -145,8 +154,8 @@ Directories
 -  ``doc`` - Contains documentation.
 -  ``docker`` - Contains jinja2 templates for the Docker build system.
 -  ``etc`` - Contains a reference etc directory structure which requires
-   configuration of a small number of configuration variables to achieve
-   a working All-in-One (AIO) deployment.
+   configuration of a small number of configuration variables to build
+   docker images.
 -  ``tests`` - Contains functional testing tools.
 -  ``tools`` - Contains tools for interacting with the kolla repository.
 -  ``specs`` - Contains the Kolla communities key arguments about

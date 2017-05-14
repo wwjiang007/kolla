@@ -20,5 +20,9 @@ EOF
     openstack/kolla-ansible
 
 pushd "${KOLLA_ANSIBLE_DIR}"
-./tools/deploy_aio.sh "$KOLLA_BASE" "$KOLLA_TYPE"
+# Copy configs
+sudo cp -a etc/kolla /etc/
+# Generate passwords
+sudo tools/generate_passwords.py
+sudo ./tools/deploy_aio.sh "$KOLLA_BASE" "$KOLLA_TYPE"
 popd

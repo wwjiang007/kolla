@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block tgtd_header %}{% endblock %}
 
@@ -11,7 +11,7 @@ MAINTAINER {{ maintainer }}
 {{ macros.install_packages(tgtd_packages | customizable("packages")) }}
 RUN sed -i '1 i include /var/lib/cinder/volumes/*' /etc/tgt/tgtd.conf
 
-{% elif base_distro in ['ubuntu', 'debian'] %}
+{% elif base_distro in ['debian', 'ubuntu'] %}
     {% set tgtd_packages = ['tgt'] %}
 
 {{ macros.install_packages(tgtd_packages | customizable("packages")) }}
@@ -21,4 +21,3 @@ RUN sed -i '1 i include /var/lib/cinder/volumes/*' /etc/tgt/targets.conf
 
 {% block tgtd_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}swift-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block swift_object_expirer_header %}{% endblock %}
 
@@ -10,7 +10,7 @@ MAINTAINER {{ maintainer }}
         # RDO has it packaged in the wrong package for now. The issue is being
         # tracked in https://bugzilla.redhat.com/show_bug.cgi?id=1382921
         {% set swift_object_expirer_packages = ['openstack-swift-proxy'] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set swift_object_expirer_packages = ['swift-object'] %}
     {% endif %}
 
@@ -20,6 +20,5 @@ MAINTAINER {{ maintainer }}
 
 {% block swift_object_expirer_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER swift

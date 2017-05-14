@@ -1,21 +1,29 @@
 FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block kubetoolbox_header %}{% endblock %}
+
+{% if base_arch != 'x86_64' %}
+
+RUN echo 'There is no "kubectl" binary for {{ base_arch }}' \
+    && /bin/false
+
+{% endif %}
 
 {% import "macros.j2" as macros with context %}
 
 {% set kubetoolbox_packages = [
-   'jq',
    'ceph-common',
-   'ipmitool'
+   'ipmitool',
+   'jq'
 ] %}
 
 {{ macros.install_packages(kubetoolbox_packages | customizable("packages")) }}
 
+{% block kubetoolbox_install_kube_binary %}
 RUN curl -o /usr/bin/kubectl http://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/linux/amd64/kubectl \
     && chmod 755 /usr/bin/kubectl
+{% endblock %}
 
 {% block kubetoolbox_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}

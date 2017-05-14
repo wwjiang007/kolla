@@ -75,7 +75,28 @@ function collect_logs {
     set -o errexit
 }
 
+function pack_registry {
+    if [[ "$ZUUL_PIPELINE" == "tag" ]]; then
+        # ZUUL_REFNAME=refs/tags/4.0.0
+        REF_NAME=$(echo $ZUUL_REFNAME | cut -d/ -f3)
+    else
+        # ZUUL_REFNAME=stable/ocata or master
+        REF_NAME=$(echo $ZUUL_REFNAME | cut -d/ -f2)
+    fi
+    sudo mkdir "images"
+    FILENAME=${BASE_DISTRO}-${INSTALL_TYPE}-registry-${REF_NAME}.tar.gz
+    sudo docker stop registry
+    sudo tar -zcf "images/$FILENAME" -C /tmp/kolla_registry .
+    sudo docker start registry
+    sudo chmod 755 -R images
+}
+
+
 trap collect_logs EXIT
 
 tools/setup_gate.sh
 tox -e $ACTION-$BASE_DISTRO-$INSTALL_TYPE
+
+if [[ -n $PACK_REGISTRY ]] && [[ $ACTION == "build" ]]; then
+    pack_registry
+fi

@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}neutron-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block neutron_lbaas_agent_header %}{% endblock %}
 
@@ -18,7 +18,7 @@ MAINTAINER {{ maintainer }}
             'openstack-neutron-lbaas'
         ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set neutron_lbaas_agent_packages = [
             'neutron-lbaas-common',
@@ -33,8 +33,13 @@ MAINTAINER {{ maintainer }}
 {% elif install_type == 'source' %}
 
 ADD neutron-lbaas-agent-archive /neutron-lbaas-agent-source
+
+{% set neutron_lbaas_agent_pip_packages = [
+    '/neutron_lbaas'
+] %}
+
 RUN ln -s neutron-lbaas-agent-source/* neutron_lbaas \
-    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /neutron_lbaas \
+    && {{ macros.install_pip(neutron_lbaas_agent_pip_packages | customizable("pip_packages")) }} \
     && cp /neutron_lbaas/etc/neutron/rootwrap.d/* /etc/neutron/rootwrap.d \
     && sed -i 's|^exec_dirs.*|exec_dirs=/var/lib/kolla/venv/bin,/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin|g' /etc/neutron/rootwrap.conf
 
@@ -45,6 +50,5 @@ RUN chmod 755 /usr/local/bin/kolla_neutron_extend_start
 
 {% block neutron_lbaas_agent_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER neutron

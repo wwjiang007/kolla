@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}gnocchi-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block gnocchi_metricd_header %}{% endblock %}
 
@@ -8,7 +8,7 @@ MAINTAINER {{ maintainer }}
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
        {% set gnocchi_metricd_packages = ['openstack-gnocchi-metricd'] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set gnocchi_metricd_packages = ['gnocchi-metricd'] %}
     {% endif %}
 {{ macros.install_packages(gnocchi_metricd_packages | customizable("packages")) }}
@@ -16,7 +16,5 @@ MAINTAINER {{ maintainer }}
 {% endif %}
 {% block gnocchi_metricd_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-
-{{ include_footer }}
 
 USER gnocchi

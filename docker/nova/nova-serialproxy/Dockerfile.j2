@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}nova-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block nova_serialproxy_header %}{% endblock %}
 
@@ -10,7 +10,7 @@ MAINTAINER {{ maintainer }}
         {% set nova_serialproxy_packages = [
              'openstack-nova-serialproxy'
          ] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set nova_serialproxy_packages = [
              'nova-serialproxy'
          ] %}
@@ -22,6 +22,5 @@ MAINTAINER {{ maintainer }}
 
 {% block nova_serialproxy_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER nova

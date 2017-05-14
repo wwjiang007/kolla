@@ -1,28 +1,30 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block nova_base_header %}{% endblock %}
 
 {% import "macros.j2" as macros with context %}
 
+{{ macros.configure_user(name='nova', groups='qemu') }}
+
 {% if install_type == 'binary' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
 
         {% set nova_base_packages = [
-                'openstack-nova-common',
-                'python-keystoneclient',
-                'python-cinderclient',
                 'bridge-utils',
-                'openvswitch'
+                'openstack-nova-common',
+                'openvswitch',
+                'python-cinderclient',
+                'python-keystoneclient'
         ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set nova_base_packages = [
-                'nova-common',
-                'python-nova',
                 'bridge-utils',
-                'openvswitch-switch'
+                'nova-common',
+                'openvswitch-switch',
+                'python-nova'
         ] %}
 
     {% endif %}
@@ -37,17 +39,17 @@ MAINTAINER {{ maintainer }}
                 'openvswitch'
         ] %}
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
 
         {% set nova_base_packages = [
-            'iptables',
-            'iproute2',
-            'ebtables',
-            'dnsmasq',
             'bridge-utils',
-            'python-libvirt',
+            'dnsmasq',
+            'ebtables',
+            'iproute2',
+            'iptables',
             'openssh-client',
-            'openvswitch-switch'
+            'openvswitch-switch',
+            'python-libvirt'
         ] %}
 
     {% endif %}
@@ -55,13 +57,16 @@ MAINTAINER {{ maintainer }}
 {{ macros.install_packages(nova_base_packages | customizable("packages")) }}
 
 ADD nova-base-archive /nova-base-source
+
+{% set nova_base_pip_packages = [
+    '/nova'
+] %}
+
 RUN ln -s nova-base-source/* nova \
-    && useradd --user-group --create-home --home-dir /var/lib/nova nova \
-    && chmod 755 /var/lib/nova \
-    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /nova \
-    && mkdir -p /etc/nova /var/lib/nova \
+    && {{ macros.install_pip(nova_base_pip_packages | customizable("pip_packages")) }} \
+    && mkdir -p /etc/nova/ \
     && cp -r /nova/etc/nova/* /etc/nova/ \
-    && chown -R nova: /etc/nova /var/lib/nova \
+    && chown -R nova: /etc/nova/ \
     && sed -i 's|^exec_dirs.*|exec_dirs=/var/lib/kolla/venv/bin,/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin|g' /etc/nova/rootwrap.conf
 
 COPY nova_sudoers /etc/sudoers.d/kolla_nova_sudoers
@@ -74,7 +79,5 @@ COPY extend_start.sh /usr/local/bin/kolla_extend_start
 
 RUN touch /usr/local/bin/kolla_nova_extend_start \
     && chmod 755 /usr/local/bin/kolla_extend_start /usr/local/bin/kolla_nova_extend_start
-
-RUN usermod -a -G kolla nova
 
 {% block nova_base_footer %}{% endblock %}

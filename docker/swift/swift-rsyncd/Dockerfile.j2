@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}swift-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block swift_rsyncd_header %}{% endblock %}
 
@@ -7,7 +7,7 @@ MAINTAINER {{ maintainer }}
 
 {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
     {% set swift_rsyncd_packages = ['rsync'] %}
-{% elif base_distro in ['ubuntu', 'debian'] %}
+{% elif base_distro in ['debian', 'ubuntu'] %}
     {% set swift_rsyncd_packages = ['rsync'] %}
 {% endif %}
 
@@ -17,6 +17,5 @@ RUN chmod 755 /usr/local/bin/kolla_extend_start
 
 {% block swift_rsyncd_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER swift

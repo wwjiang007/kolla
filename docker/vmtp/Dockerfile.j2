@@ -1,7 +1,11 @@
 FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block vmtp_header %}{% endblock %}
+
+{% import "macros.j2" as macros with context %}
+
+{{ macros.configure_user(name='vmtp') }}
 
 {% if install_type == 'binary' %}
 
@@ -10,18 +14,23 @@ RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
 
 {% elif install_type == 'source' %}
 
-RUN pip install vmtp \
-    && useradd --user-group vmtp
+{% set vmtp_pip_packages = [
+    '/vmtp'
+] %}
+
+ADD vmtp-archive /vmtp-source
+RUN ln -s vmtp-source/* vmtp \
+    && {{ macros.install_pip(vmtp_pip_packages | customizable("pip_packages")) }} \
+    && mkdir -p /etc/vmtp \
+    && chown -R vmtp: /etc/vmtp
 
 {% endif %}
 
 COPY vmtp_sudoers /etc/sudoers.d/kolla_vmtp_sudoers
 RUN chmod 750 /etc/sudoers.d \
-    && chmod 440 /etc/sudoers.d/kolla_vmtp_sudoers \
-    && usermod -a -G kolla vmtp
+    && chmod 440 /etc/sudoers.d/kolla_vmtp_sudoers
 
 {% block vmtp_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER vmtp

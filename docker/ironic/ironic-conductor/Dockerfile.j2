@@ -1,5 +1,5 @@
 FROM {{ namespace }}/{{ image_prefix }}ironic-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block ironic_conductor_header %}{% endblock %}
 
@@ -11,73 +11,90 @@ MAINTAINER {{ maintainer }}
         # python-seamicroclient, pyremotevbox package
         {% set ironic_conductor_packages = [
             'dosfstools',
-            'util-linux',
-            'openstack-ironic-conductor',
-            'qemu-img',
-            'ipmitool',
-            'parted',
             'gdisk',
-            'psmisc',
-            'python-dracclient',
-            'python-proliantutils',
-            'python-ironic-inspector-client',
-            'python-pyghmi',
-            'pysnmp',
-            'python-UcsSdk',
+            'ipmitool',
+            'openstack-ironic-conductor',
             'openwsman-python',
-            'python2-ImcSdk'
+            'parted',
+            'psmisc',
+            'pysnmp',
+            'python2-ImcSdk',
+            'python-dracclient',
+            'python-ironic-inspector-client',
+            'python-proliantutils',
+            'python-pyghmi',
+            'python-UcsSdk',
+            'qemu-img',
+            'shellinabox',
+            'socat',
+            'util-linux'
         ] %}
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         # TODO(jeffrey4l): no python-dracclient, python-oneviewclient, UcsSdk,
         # pyremotevbox, ImcSdk package
         {% set ironic_conductor_packages = [
             'bsdmainutils',
             'dosfstools',
-            'ironic-conductor',
-            'qemu-utils',
-            'ipmitool',
             'gdisk',
-            'psmisc',
+            'ipmitool',
+            'ironic-conductor',
             'parted',
-            'python-proliantutils',
+            'psmisc',
             'python-ironic-inspector-client',
+            'python-openwsman',
+            'python-proliantutils',
             'python-pyghmi',
             'python-pysnmp4',
             'python-scciclient',
             'python-seamicroclient',
-            'python-openwsman'
+            'qemu-utils',
+            'shellinabox',
+            'socat'
         ] %}
     {% endif %}
 {% elif install_type == 'source' %}
     {% if base_distro in ['centos', 'oraclelinux', 'rhel'] %}
         {% set ironic_conductor_packages = [
-            'dosfstools'
-            'util-linux',
-            'qemu-img',
+            'dosfstools',
+            'fuse',
+            'gdisk',
             'ipmitool',
             'parted',
-            'gdisk',
             'psmisc',
-            'fuse'
+            'qemu-img',
+            'shellinabox',
+            'socat',
+            'util-linux'
         ] %}
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set ironic_conductor_packages = [
             'bsdmainutils',
             'dosfstools',
-            'qemu-utils',
-            'ipmitool',
             'gdisk',
+            'ipmitool',
+            'parted',
             'psmisc',
-            'parted'
+            'qemu-utils',
+            'shellinabox',
+            'socat'
         ] %}
     {% endif %}
-RUN /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt -r /ironic/driver-requirements.txt
+
+{% set ironic_conductor_pip_packages = [
+    '-r /ironic/driver-requirements.txt'
+] %}
+
+RUN {{ macros.install_pip(ironic_conductor_pip_packages | customizable("pip_packages")) }}
 {% endif %}
 
 {{ macros.install_packages(ironic_conductor_packages | customizable("packages")) }}
 
+COPY extend_start.sh /usr/local/bin/kolla_ironic_extend_start
+COPY iscsi_tcp_sudoers /etc/sudoers.d/kolla_iscsi_tcp_sudoers
+RUN chmod 755 /usr/local/bin/kolla_ironic_extend_start \
+    && chmod 440 /etc/sudoers.d/kolla_iscsi_tcp_sudoers
+
 {% block ironic_conductor_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER ironic

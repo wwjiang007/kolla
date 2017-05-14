@@ -1,7 +1,14 @@
 FROM {{ namespace }}/{{ image_prefix }}magnum-base:{{ tag }}
-MAINTAINER {{ maintainer }}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}"
 
 {% block magnum_conductor_header %}{% endblock %}
+
+{% if base_arch != 'x86_64' %}
+
+RUN echo 'There is no "kubectl" binary for {{ base_arch }}' \
+    && /bin/false
+
+{% endif %}
 
 {% import "macros.j2" as macros with context %}
 
@@ -11,7 +18,7 @@ MAINTAINER {{ maintainer }}
              'openstack-magnum-conductor'
          ] %}
 
-    {% elif base_distro in ['ubuntu'] %}
+    {% elif base_distro in ['debian', 'ubuntu'] %}
         {% set magnum_conductor_packages = [
              'magnum-conductor'
          ] %}
@@ -27,6 +34,5 @@ RUN curl -Lo /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-re
 
 {% block magnum_conductor_footer %}{% endblock %}
 {% block footer %}{% endblock %}
-{{ include_footer }}
 
 USER magnum
