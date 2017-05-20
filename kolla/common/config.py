@@ -45,8 +45,8 @@ DELOREAN = \
 #            there is ongoing work to sort that out
 DELOREAN_DEPS = {
     'x86_64': "https://trunk.rdoproject.org/centos7/delorean-deps.repo",
-    'aarch64': None,
-    'ppc64le': None
+    'aarch64': "",
+    'ppc64le': ""
 }
 
 INSTALL_TYPE_CHOICES = ['binary', 'source', 'rdo', 'rhos']
@@ -95,6 +95,7 @@ _PROFILE_OPTS = [
                     'cloudkitty',
                     'congress',
                     'designate',
+                    'dragonflow',
                     'freezer',
                     'gnocchi',
                     'influxdb',
@@ -303,6 +304,10 @@ SOURCES = {
         'type': 'url',
         'location': ('$tarballs_base/designate/'
                      'designate-master.tar.gz')},
+    'dragonflow-base': {
+        'type': 'url',
+        'location': ('$tarballs_base/dragonflow/'
+                     'dragonflow-master.tar.gz')},
     'freezer-api': {
         'type': 'url',
         'location': ('$tarballs_base/freezer-api/'
@@ -835,6 +840,14 @@ USERS = {
     'opendaylight-user': {
         'uid': 42462,
         'gid': 42462,
+    },
+    'zun-user': {
+        'uid': 42463,
+        'gid': 42463,
+    },
+    'dragonflow-user': {
+        'uid': 42464,
+        'gid': 42464,
     }
 }
 
